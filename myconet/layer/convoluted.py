@@ -1,7 +1,8 @@
 from .default import DefaultLayer
-from ..buffer import NetworkBuffer, create_empty_buffer
+from ..buffer import NetworkBuffer, create_empty_buffer, mul_array
 from ..file_api import encode_dict, decode_dict
 from ..util import weight_init, bias_init, format_with_batching
+
 
 import numpy as np
 
@@ -85,14 +86,16 @@ class Convoluted(DefaultLayer):
     def forward(self, inputs: NetworkBuffer | list, wait=True, batch=False) -> NetworkBuffer:
         inputs, batch_size = format_with_batching(self._cl, inputs, batch)
 
-        outputs = create_empty_buffer(self._cl, self.__output_shape[1] * self.__output_shape[2] * batch_size * self.__filter_count)
+        outputs = create_empty_buffer(self._cl, (batch_size, self.__filter_count * self.__output_shape[1] * self.__output_shape[2]))
 
         self.execute_forward_kernel("forward",
                                     (self.__output_shape[1], self.__output_shape[2], batch_size * self.__filter_count),
                                     inputs.get_as_buffer(),
                                     outputs.get_as_buffer(),
+
                                     self.weights.get_as_buffer(),
                                     self.bias.get_as_buffer(),
+
                                     np.int32(self.__input_shape[0]),
                                     np.int32(self.__input_shape[1]),
                                     np.int32(self.__kernel_shape[0]),
@@ -103,6 +106,7 @@ class Convoluted(DefaultLayer):
                                     np.int32(self.__input_shape[2]),
                                     np.int32(self.__activation),
                                     np.int32(batch_size),
+                                    np.int32(self.__filter_count),
                                     ).wait()
 
         return outputs
@@ -110,8 +114,8 @@ class Convoluted(DefaultLayer):
     def forward_train(self, inputs: NetworkBuffer, batch=False):
         inputs, batch_size = format_with_batching(self._cl, inputs, batch)
 
-        outputs = create_empty_buffer(self._cl, (batch_size * self.__filter_count, self.__output_shape[1] * self.__output_shape[2] * self.__filter_count))
-        unactivated_outputs = create_empty_buffer(self._cl, (batch_size, self.__output_shape[1] * self.__output_shape[2] * self.__filter_count))
+        outputs = create_empty_buffer(self._cl, (batch_size, self.__filter_count * self.__output_shape[1] * self.__output_shape[2]))
+        unactivated_outputs = create_empty_buffer(self._cl, (batch_size, self.__filter_count * self.__output_shape[1] * self.__output_shape[2]))
 
         self.execute_training_kernel("forward",
                                     (self.__output_shape[1], self.__output_shape[2], batch_size * self.__filter_count),
@@ -131,6 +135,8 @@ class Convoluted(DefaultLayer):
                                      np.int32(self.__stride),
                                      np.int32(self.__input_shape[2]),
                                      np.int32(self.__activation),
+                                     np.int32(batch_size),
+                                     np.int32(self.__filter_count),
                                     ).wait()
 
         return outputs, unactivated_outputs
@@ -142,24 +148,22 @@ class Convoluted(DefaultLayer):
 
         # This is a LOT of data...
         input_error_gradients_unreduced = create_empty_buffer(self._cl,
-                                        (batch_size, self.__output_shape[0] * self.__output_shape[1] * self.__output_shape[2] *
+                                        (batch_size, self.__filter_count * self.__output_shape[0] * self.__output_shape[1] * self.__output_shape[2] *
                                         self.__kernel_shape[0] * self.__kernel_shape[1]))
 
         weight_error_gradients_unreduced = create_empty_buffer(self._cl,
-                                                              (batch_size, self.__output_shape[0] * self.__output_shape[1] *
+                                                              (batch_size, self.__filter_count * self.__output_shape[0] * self.__output_shape[1] *
                                                               self.__output_shape[2] *
                                                               self.__kernel_shape[0] * self.__kernel_shape[1]))
 
-        weight_gradients = create_empty_buffer(self._cl, (batch_size, *self.weights.get_shape()))
-
-        bias_gradients = create_empty_buffer(self._cl, (batch_size, self.__output_shape[1] * self.__output_shape[2]))
+        weight_gradients = create_empty_buffer(self._cl, (batch_size, self.__filter_count * mul_array(self.weights.get_shape())))
+        bias_gradients = create_empty_buffer(self._cl, (batch_size, self.__filter_count * self.__output_shape[1] * self.__output_shape[2]))
 
         event = self.execute_training_kernel("backwards",
-                                     (self.__output_shape[1], self.__output_shape[2], batch_size),
+                                     (self.__output_shape[1], self.__output_shape[2], batch_size * self.__filter_count),
                                      NetworkBuffer(self._cl, input_values, input_values.shape).get_as_buffer(),
                                      outputs.get_as_buffer(),
                                      self.weights.get_as_buffer(),
-
 
                                      error_gradients.get_as_buffer(),
 
@@ -181,10 +185,14 @@ class Convoluted(DefaultLayer):
 
                                      np.int32(self.__activation),
                                      np.float32(learning_rate),
+
+                                     np.int32(batch_size),
+                                     np.int32(self.__filter_count),
         )
 
+        # TODO - Make this work with filter count
         self.execute_training_kernel("reduce_weight_gradients",  # __input_shape[2] is channel count
-                                     (self.__kernel_shape[0] *  self.__kernel_shape[1], self.__input_shape[2], batch_size),
+                                     (self.__kernel_shape[0] *  self.__kernel_shape[1], self.__input_shape[2], batch_size * self.__filter_count),
                                      weight_error_gradients_unreduced.get_as_buffer(),
                                      weight_gradients.get_as_buffer(),
 
@@ -192,6 +200,8 @@ class Convoluted(DefaultLayer):
                                      np.int32(self.__kernel_shape[1]),
                                      np.int32(self.__input_shape[2]),
                                      np.int32(self.__output_shape[1] * self.__output_shape[2]),
+                                     np.int32(batch_size),
+                                     np.int32(self.__filter_count),
                                      wait_for=event
         ).wait()
 

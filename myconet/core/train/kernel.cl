@@ -28,33 +28,37 @@ __kernel void forward(__global float* inputs,
                       int stride,
                       int channels,
                       int activation_type,
-                      int max_batches
+                      int max_batches,
+                      int filter_count
 ) {
     int output_x = get_global_id(0);
     int output_y = get_global_id(1);
     int mixed_index = get_global_id(2);
 
-    int batch_index = mixed_index / max_batches;
-    int filter_index = (mixed_index * max_batches) - batch_index;
+    int batch_index  = mixed_index % max_batches;
+    int filter_index = mixed_index / max_batches;
 
-    int output_batch_offset = output_width * output_height * batch_index;
-    int input_batch_offset = input_width * input_height * channels * batch_index;
+    int batch_output_offset = output_width * output_height * filter_count * batch_index;
+    int batch_input_offset = input_width * input_height * channels * filter_count * batch_index;
+
+    int filter_output_offset = output_width * output_height * filter_index;
+    int filter_weight_offset = kernel_width * kernel_height * channels * filter_index;
 
     int output_index = output_y * output_width + output_x;
     int input_x_anchor = output_x * stride;
     int input_y_anchor = output_y * stride;
 
-    float total_sum = biases[0];  // Only 1 value for this, 1 bias per filter/kernel
+    float total_sum = biases[filter_index];
     for (int channel=0; channel<channels; channel++) {
-        int base_weight_index = kernel_width * kernel_height * channel;
-        int base_input_index = (input_width * input_height * channel);
+        int base_weight_index = kernel_width * kernel_height * channel + filter_weight_offset;
+        int base_input_index = (input_width * input_height * channel) + batch_input_offset;
 
         for (int dx=0; dx<kernel_width; dx++) {
             for (int dy=0; dy<kernel_height; dy++) {
                 int weight_index = base_weight_index + (dy * kernel_width) + dx;
                 int input_index = base_input_index + ((input_y_anchor + dy) * input_height) + (input_x_anchor + dx);
 
-                float weighted_value = weights[weight_index] * inputs[input_index + input_batch_offset];
+                float weighted_value = weights[weight_index] * inputs[input_index];
                 total_sum += weighted_value;
             }
         }
@@ -73,8 +77,8 @@ __kernel void forward(__global float* inputs,
                 break;
     }
 
-    unactivated_outputs[output_index + output_batch_offset] = total_sum;
-    outputs[output_index + output_batch_offset] = activated;
+    unactivated_outputs[output_index + batch_output_offset + filter_output_offset] = total_sum;
+    outputs[output_index + batch_output_offset + filter_output_offset] = activated;
 }
 
 __kernel void backwards(
@@ -97,21 +101,29 @@ __kernel void backwards(
             int stride, // Static / Input
             int channels, // Static / Input
             int activation_type, // Static / Input
-            float learning_rate // Static / Input
+            float learning_rate, // Static / Input
+            int max_batches,
+            int filter_count
 ) {
     int output_x = get_global_id(0);
     int output_y = get_global_id(1);
-    int batch_index = get_global_id(2);
+    int mixed_index = get_global_id(2);
+
+    int batch_index  = mixed_index % max_batches;
+    int filter_index = mixed_index / max_batches;
+
+    int filter_output_offset = output_width * output_height * filter_index;
+    int filter_weight_offset = kernel_width * kernel_height * channels * filter_index;
 
     int kernel_weight_count = kernel_width * kernel_height * channels;
     int output_count = output_width * output_height;
 
-    int output_batch_offset = output_count * batch_index;
-    int input_batch_offset = input_width * input_height * channels * batch_index;
-    int unreduced_buffer_offset = kernel_weight_count * output_count * batch_index;
+    int output_batch_offset = output_count * filter_count * batch_index;
+    int input_batch_offset = input_width * input_height * channels * filter_count * batch_index;
+    int unreduced_buffer_offset = kernel_weight_count * output_count * filter_count * batch_index;
 
     int relative_output_index = output_y * output_width + output_x;
-    int output_index = relative_output_index + output_batch_offset;
+    int output_index = relative_output_index + output_batch_offset + filter_output_offset;
 
     float activated_value = outputs[output_index];
 
@@ -140,7 +152,7 @@ __kernel void backwards(
 
         for (int dx=0; dx<kernel_width; dx++) {
             for (int dy=0; dy<kernel_height; dy++) {
-                int weight_index = base_weight_index + (dy * kernel_width) + dx; // No need to add batching logic, ony 1 set of weights/biases
+                int weight_index = base_weight_index + (dy * kernel_width) + dx + filter_weight_offset; // No need to add batching logic, ony 1 set of weights/biases
                 int input_index = base_input_index + ((input_y_anchor + dy) * input_height) + (input_x_anchor + dx);
 
                 float weight_gradient = delta * inputs[input_index + input_batch_offset] * learning_rate;
@@ -166,25 +178,33 @@ __kernel void reduce_weight_gradients(
     int kernel_height,
     int channels,
 
-    int output_size
+    int output_size,
+    int max_batches,
+    int filter_count
 ) {
     int kernel_index = get_global_id(0);
     int channel = get_global_id(1);
-    int batch_index = get_global_id(2); // now used as batch selector
+    int mixed_index = get_global_id(2);
+
+    int batch_index  = mixed_index % max_batches;
+    int filter_index = mixed_index / max_batches;
 
     int kernel_x = kernel_index / kernel_width;
     int kernel_y = kernel_index % kernel_width;
 
     int weights_per_channel = kernel_width * kernel_height;
-    int weights_per_batch = weights_per_channel * channels;
+    int weights_per_filter = weights_per_channel * channels;
+    int weights_per_batch = weights_per_filter * max_batches;
 
     int weight_index = (batch_index * weights_per_batch) +
+                       (filter_index * weights_per_filter) +
                        (channel * weights_per_channel) +
                        (kernel_y * kernel_width) +
                        kernel_x;
 
     float weight_gradient_sum = 0.0f;
     for (int output_index = 0; output_index < output_size; output_index++) {
+        // fixme - I think this is calced wrong
         int unreduced_index = (batch_index * output_size * weights_per_batch) +
                               (output_index * weights_per_batch) +
                               (channel * weights_per_channel) +

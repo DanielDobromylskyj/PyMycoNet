@@ -107,7 +107,7 @@ net_convoluted.log.disable()
 standard_conv_start = time.time()
 
 conv_net_forward_outputs = [
-    net_convoluted.forward(sample, batch=False)
+    net_convoluted.forward(sample, batch=False)[0]
     for sample in test_data_conv
 ]
 
@@ -157,15 +157,6 @@ conv_forward_batched_elapsed = batched_conv_end - batched_conv_start
 conv_backward_standard_elapsed = training_conv_standard_end - training_conv_standard_start
 conv_backwards_batched_elapsed = training_conv_batched_end - training_conv_batched_start
 
-output_match = all([
-    round(outputs1[i][0], 4) == round(outputs2[i][0], 4)
-    for i in range(len(outputs1))
-]) if len(outputs1) == len(outputs2) else "Different Sizes!"
-
-conv_output_match = all([
-    round(conv_net_forward_outputs[i][0], 4) == round(conv_net_forward_outputs_batched[i][0], 4)
-    for i in range(len(conv_net_forward_outputs))
-]) if len(conv_net_forward_outputs) == len(conv_net_forward_outputs_batched) else "Different Sizes!"
 
 
 def get_shape(obj):
@@ -218,8 +209,13 @@ def compare_nested_lists(a, b):
 
     return True, None
 
-output_match_2, err = compare_nested_lists(training_outputs_standard, training_outputs_batched)
-conv_output_match_2, err2 = compare_nested_lists(training_conv_outputs_standard, training_conv_outputs_batched)
+outputs1 = np.array(outputs1)  # Just for formats / comparing
+output_match_1, err1 = compare_nested_lists(outputs1, outputs2)
+output_match_2, err2 = compare_nested_lists(training_outputs_standard, training_outputs_batched)
+
+conv_net_forward_outputs = np.array(conv_net_forward_outputs)
+conv_output_match_1, err3 = compare_nested_lists(conv_net_forward_outputs, conv_net_forward_outputs_batched)
+conv_output_match_2, err4 = compare_nested_lists(training_conv_outputs_standard, training_conv_outputs_batched)
 
 print("\n\n>> PERFORMANCE BREAK DOWN <<")
 print("Batch Size ->", len(test_data))
@@ -232,12 +228,34 @@ conv_batch_increase_backward = round((conv_backward_standard_elapsed - conv_back
 
 print(f"Batch Speed Increase (Dense) -> {batch_increase_forward}%, {batch_increase_backward}%")
 print(f"Batch Speed Increase (Convoluted) -> {conv_batch_increase_forward}%, {conv_batch_increase_backward}%")
-print("Forward Output Match ->", output_match)
-print("Backward Output Match ->", output_match_2, f"-> {err} error" if err else "")
-print("Forward (Convoluted) Output Match ->", conv_output_match)
-print("Backward (Convoluted) Output Match ->", conv_output_match_2, f"-> {err2} error" if err2 else "")
+print("Forward Output Match ->", output_match_1, f"-> {err1} error" if err1 else "")
+print("Backward Output Match ->", output_match_2, f"-> {err2} error" if err2 else "")
+print("Forward (Convoluted) Output Match ->", conv_output_match_1, f"-> {err3} error" if err3 else "")
+print("Backward (Convoluted) Output Match ->", conv_output_match_2, f"-> {err4} error" if err4 else "")
 
-if err2:
+if err1:
+    print("Dense Forward Output Error!")
+    print(outputs1)
+    print(outputs2)
+
+if err2 and not err1:
+    print("Dense backward Output Error!")
+    print(training_outputs_standard[2])
+    print(training_outputs_batched[2])
+
+if err3 and not (err1 or err2):
+    print("Conv Forward Output Error!")
+    print(get_shape(conv_net_forward_outputs), "vs", get_shape(conv_net_forward_outputs_batched))
+    print(conv_net_forward_outputs.shape, "vs", conv_net_forward_outputs_batched.shape)
+
+
+    #print(conv_net_forward_outputs)
+    #print(conv_net_forward_outputs_batched)
+
+if err4 and not (err1 or err2 or err3):
+    print("Conv Backward Output Error!")
+    print(get_shape(training_conv_outputs_standard), "vs", get_shape(training_conv_outputs_batched))
+
     print(training_conv_outputs_standard[2])
     print(training_conv_outputs_batched[2])
 
