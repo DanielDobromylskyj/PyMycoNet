@@ -153,7 +153,7 @@ __kernel void backwards(
         for (int dx=0; dx<kernel_width; dx++) {
             for (int dy=0; dy<kernel_height; dy++) {
                 int weight_index = base_weight_index + (dy * kernel_width) + dx + filter_weight_offset; // No need to add batching logic, ony 1 set of weights/biases
-                int input_index = base_input_index + ((input_y_anchor + dy) * input_height) + (input_x_anchor + dx);
+                int input_index = base_input_index + ((input_y_anchor + dy) * input_width) + (input_x_anchor + dx);
 
                 float weight_gradient = delta * inputs[input_index + input_batch_offset] * learning_rate;
                 float input_error_gradient = clip(weights[weight_index] * delta, 1.0f);  // Dont *learning rate, as this makes the gradients disappear faster (Bad)
@@ -192,27 +192,29 @@ __kernel void reduce_weight_gradients(
     int kernel_x = kernel_index / kernel_width;
     int kernel_y = kernel_index % kernel_width;
 
-    int weights_per_channel = kernel_width * kernel_height;
-    int weights_per_filter = weights_per_channel * channels;
-    int weights_per_batch = weights_per_filter * max_batches;
+    int values_per_output = kernel_width * kernel_height * channels;
+    int values_per_filter = values_per_output * output_size;
+    int values_per_batch = values_per_filter * filter_count;
 
-    int weight_index = (batch_index * weights_per_batch) +
-                       (filter_index * weights_per_filter) +
-                       (channel * weights_per_channel) +
-                       (kernel_y * kernel_width) +
-                       kernel_x;
+    int batch_offset = values_per_batch * batch_index;
+    int filter_offset = values_per_filter * filter_index;
+    // Cant calculate output offset here (Missing values)
+    int weight_offset = (kernel_y * kernel_width) + kernel_x;
+
+    // Buffer Layout: [batch_index][filter_index][output_index][weight_index]
+    // [batch_index][filter_index]
+    // We want to sum along "output_index"?
+    // [batch_index][filter_index] will be "static" / not change over our loop
+    // [weight_index] Should also be "static" over our loop, but NOT the output index/offset
 
     float weight_gradient_sum = 0.0f;
     for (int output_index = 0; output_index < output_size; output_index++) {
-        // fixme - I think this is calced wrong
-        int unreduced_index = (batch_index * output_size * weights_per_batch) +
-                              (output_index * weights_per_batch) +
-                              (channel * weights_per_channel) +
-                              (kernel_y * kernel_width) +
-                              kernel_x;
+        // fixme / todo / Broken - weight_index might be wrong too but idk this is a future me problem. (I hate past me)
+        int output_offset = values_per_output * output_index;
+        int unreduced_index = batch_offset + filter_offset + output_offset + weight_offset;
 
         weight_gradient_sum += weight_gradients_unreduced[unreduced_index];
     }
 
-    weight_gradients[weight_index] = weight_gradient_sum;
+    weight_gradients[weight_offset] = weight_gradient_sum;
 }

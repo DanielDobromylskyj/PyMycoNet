@@ -249,15 +249,15 @@ if err3 and not (err1 or err2):
     print(conv_net_forward_outputs.shape, "vs", conv_net_forward_outputs_batched.shape)
 
 
-    #print(conv_net_forward_outputs)
-    #print(conv_net_forward_outputs_batched)
+    print(conv_net_forward_outputs)
+    print(conv_net_forward_outputs_batched)
 
 if err4 and not (err1 or err2 or err3):
     print("Conv Backward Output Error!")
     print(get_shape(training_conv_outputs_standard), "vs", get_shape(training_conv_outputs_batched))
 
-    print(training_conv_outputs_standard[2])
-    print(training_conv_outputs_batched[2])
+    print(training_conv_outputs_standard[0])
+    print(training_conv_outputs_batched[0])
 
 
 print("\n")

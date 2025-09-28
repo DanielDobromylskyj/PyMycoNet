@@ -56,9 +56,10 @@ class EmptyNetworkBuffer:
         self.cl = cl
         self.__shape = shape
         self.__dtype = dtype
+        self.size = mul_array(shape) * np.dtype(dtype).itemsize
 
         if create_buffer:
-            self.buffer = pycl.Buffer(self.cl.ctx, mf.READ_WRITE, size=mul_array(shape) * np.dtype(dtype).itemsize, hostbuf=None)
+            self.buffer = pycl.Buffer(self.cl.ctx, mf.READ_WRITE, size=self.size, hostbuf=None)
 
     def write_to_buffer(self, array, offset=0):
         pycl.enqueue_copy(self.cl.queue, self.buffer, array, device_offset=offset * np.dtype(self.__dtype).itemsize)
