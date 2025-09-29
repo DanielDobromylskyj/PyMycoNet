@@ -1,7 +1,6 @@
 from myconet.distrobuted import Host, Node
 from myconet.network import Network
 from myconet.layer.fully_connected import FullyConnected
-from myconet.
 import threading, time
 
 print("Creating network")
