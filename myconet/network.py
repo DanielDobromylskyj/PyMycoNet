@@ -274,21 +274,23 @@ class Network:
         self.log.debug("Added Misc Data")
 
 
+    def write_network(self, f):
+        self.__create_header(f)
+        file_api.encode_number(len(self.layout), f)
+
+        for layer in self.layout:
+            file_api.encode_number(
+                loader.layer_to_code(layer), f
+            )
+            layer.save(f, compress=self.pyn_config["use_compression"])
+            self.log.debug("Saved Layer {}".format(layer.__class__.__name__))
 
     def save(self, path):
         self.log.debug("Saving...")
         open(path, "w").close()  # truncate
 
         with open(path, 'ab') as f:
-            self.__create_header(f)
-            file_api.encode_number(len(self.layout), f)
-
-            for layer in self.layout:
-                file_api.encode_number(
-                    loader.layer_to_code(layer), f
-                )
-                layer.save(f, compress=self.pyn_config["use_compression"])
-                self.log.debug("Saved Layer {}".format(layer.__class__.__name__))
+            self.write_network(f)
 
         print("Saved Network")
 
@@ -311,24 +313,28 @@ class Network:
         return myconet_version, pyn_version, flags, layer_types, creation_date, optimiser_id
 
     @staticmethod
-    def load(path, log_level=1):
+    def read_network(f, log_level):
         cl_instance = OpenCL_Instance()
 
-        with open(path, 'rb') as f:
-            header = Network.__decode_header(f)
-            myconet_version, pyn_version, flags_int, layer_types, creation_date, optimiser_id = header
-            flags = Network.__decode_flags(flags_int)
+        header = Network.__decode_header(f)
+        myconet_version, pyn_version, flags_int, layer_types, creation_date, optimiser_id = header
+        flags = Network.__decode_flags(flags_int)
 
-            is_compressed = flags[0]
+        is_compressed = flags[0]
 
-            layer_count = file_api.decode_int(f)
+        layer_count = file_api.decode_int(f)
 
-            layout = tuple([
-                loader.code_to_layer(file_api.decode_int(f)).load(cl_instance, f, is_compressed)
-                for _ in range(layer_count)
-            ])
+        layout = tuple([
+            loader.code_to_layer(file_api.decode_int(f)).load(cl_instance, f, is_compressed)
+            for _ in range(layer_count)
+        ])
 
         return Network(layout, cl_instance=cl_instance, log_level=log_level)
+
+    @staticmethod
+    def load(path, log_level=1):
+        with open(path, 'rb') as f:
+            return Network.read_network(f, log_level)
 
     def __str__(self):
         inside = [str(layer) for layer in self.layout]
