@@ -1,6 +1,7 @@
 from myconet.distrobuted import Host, Node
 from myconet.network import Network
 from myconet.layer.fully_connected import FullyConnected
+from myconet.
 import threading, time
 
 print("Creating network")
@@ -18,13 +19,20 @@ training_data = [
     [[5], [10, 20]]
 ]
 
-host = Host("localhost", 8080, net, training_data)
+validation_data = [
+    [[1.5], [3, 6]],
+    [[7], [14, 28]],
+    [[3.5], [7, 14]],
+]
+
+host = Host("localhost", 8080, net, training_data, validation_data)
 
 def _host():
     host.run()
 
 
-threading.Thread(target=_host, daemon=True).start()
+h_thread = threading.Thread(target=_host, daemon=True)
+h_thread.start()
 time.sleep(1)
 
 node1 = Node("localhost", 8080)
@@ -39,9 +47,8 @@ threading.Thread(target=node3.start, daemon=True).start()
 time.sleep(1)
 host.awaiting_connections = False  # Force start
 
-while True:
-    time.sleep(1)
 
+input("Awaiting")
 
 
 

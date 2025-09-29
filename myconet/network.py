@@ -134,7 +134,7 @@ class Network:
 
 
     @staticmethod
-    def __average_grads(data):
+    def average_grads(data):
         sample_count = len(data)
         layer_count = len(data[0])
 
@@ -211,8 +211,14 @@ class Network:
             abs(error) for error in outputs - targets
         ])
 
+    @staticmethod
+    def __convert_sample(sample):
+        if type(sample) not in (tuple, list):
+            return sample, sample.output
+        return sample
+
     def validate(self, validation_data):
-        return sum([self.score(sample, sample.output) for sample in validation_data]) / len(validation_data)
+        return sum([self.score(*self.__convert_sample(sample)) for sample in validation_data]) / len(validation_data)
 
     def train(self, training_data, validation_data, epoches, learning_rate, batch: bool | int =False):
         self.__ready_kernels(load_training_kernels=True)
@@ -227,7 +233,7 @@ class Network:
             )
 
 
-            averaged_gradients = self.__average_grads(gradients)
+            averaged_gradients = self.average_grads(gradients)
             self.apply_gradients(averaged_gradients)
 
             last_error = self.validate(validation_data)
@@ -349,4 +355,5 @@ class Network:
         self.__del__()
 
     def __del__(self):
-        self.log.close()
+        if self.log:
+            self.log.close()

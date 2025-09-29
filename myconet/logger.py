@@ -32,6 +32,10 @@ class Logger:
         }
 
         self.log_level = log_level
+
+        if self.log_level == -1:
+            return
+
         self.path = f"logs/{time.time()}.log"
 
         self.default_print = builtins.print
@@ -46,6 +50,9 @@ class Logger:
         open(self.path, "w").close()
 
     def __log(self, text):
+        if self.log_level == -1:
+            return
+
         self.default_print(text, end="")
 
         with open(self.path, "a") as f:
@@ -60,9 +67,15 @@ class Logger:
         return f"{colour}[{state}] {text}{bcolors.ENDC}"
 
     def disable(self):
+        if self.log_level == -1:
+            return
+
         builtins.print = self.default_print
 
     def enable(self):
+        if self.log_level == -1:
+            return
+
         builtins.print = self.print
 
     def print(self, *args, sep=" ", end="\n"):
@@ -81,8 +94,11 @@ class Logger:
             self.__log(self.__create_message("SOMETHING WRONG", text))
 
     def close(self):
-        self.log_level = -1
+        if self.log_level == -1:
+            return
+
         builtins.print = self.default_print
+        self.log_level = -1
 
 
 
