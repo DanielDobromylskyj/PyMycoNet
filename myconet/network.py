@@ -8,6 +8,7 @@ from . import file_api, buffer
 from .layer import loader
 from .logger import Logger
 from .util import concatenate_batch_to_buffer, format_with_batching
+from .monitor import Monitor
 
 from .optimisers import standard
 
@@ -47,11 +48,16 @@ class ThreadedOpenCL_Instance:
 
 
 class Network:
-    def __init__(self, layout: tuple, verify=True, cl_instance=None, log_level=0, load_data=None):
+    def __init__(self, layout: tuple, verify=True, cl_instance=None, log_level=0, load_data=None, monitor=False):
         self.log = Logger(log_level)
         self.cl = OpenCL_Instance(self.log) if not cl_instance else cl_instance
         self.__kernels = {}
         self.layout = layout
+
+        self.use_monitor = monitor
+        self.last_error = 0
+        self.epoches = 0
+        self.epoche = 0
 
         self.version = (2, 0)
         self.pyn_version = (1, 2)
@@ -217,20 +223,26 @@ class Network:
     def train(self, training_data, validation_data, epoches, learning_rate, batch: bool | int =False):
         self.__ready_kernels(load_training_kernels=True)
 
-        last_error = self.validate(validation_data)
+        if self.use_monitor:
+            Monitor.start(self, learning_rate)
+
+        self.last_error = self.validate(validation_data)
+        self.epoches = epoches
+        self.epoche = 1
 
         for epoch in range(epoches):
             gradients = enqueue_many(
                 self.backward,
-                [(sample, sample.output, learning_rate, batch) for sample in training_data],
-                f"Epoch {epoch+1} | Error: {last_error} | Calculating Gradients"
+                [(*self.__convert_sample(sample), learning_rate, batch) for sample in training_data],
+                f"Epoch {epoch+1} | Error: {self.last_error} | Calculating Gradients"
             )
 
 
             averaged_gradients = self.__average_grads(gradients)
             self.apply_gradients(averaged_gradients)
 
-            last_error = self.validate(validation_data)
+            self.last_error = self.validate(validation_data)
+            self.epoche = epoch+1
 
     def __get_layout_types(self):
         layer_types = []

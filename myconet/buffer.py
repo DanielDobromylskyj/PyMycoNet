@@ -87,7 +87,7 @@ class EmptyNetworkBuffer:
 
     def get_as_array(self):
         """ Converts the buffer into a numpy array for CPU usage"""
-        output = np.empty(self.get_shape(), dtype=np.float32)
+        output = np.empty(self.get_shape(), dtype=self.__dtype)
         pycl.enqueue_copy(self.cl.queue, output, self.get_as_buffer()).wait()
         return output
 
