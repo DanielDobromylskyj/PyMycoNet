@@ -7,13 +7,73 @@
 
 
 ## 🚧 Roadmap
-- [x] Basic network support
-- [x] File API v1.2
-- [ ] Multi-kernel convolution
-- [ ] More activation functions
-- [x] Batch Support (Global)
-- [x] Batch Support (Forward)
-- [x] Batch Support (Backward)
+- [ ] Basic network support
+- [ ] File API v1.2
+
+## Relationship Graph
+
+```mermaid
+graph LR
+  subgraph Layer
+    NodeInCount[Node In Count]
+    NodeOutCount[Node Out Count]
+
+    InputValues[Input Values]
+    OutputValues[Output Values]
+
+    WeightBias[Weights / Biases]
+  end
+
+  subgraph Default Layer
+    DefaultNodeInCount[Node In Count]
+    DefaultNodeOutCount[Node Out Count]
+
+    DefaultInputValues[Input Values]
+    DefaultOutputValues[Output Values]
+
+    DefaultWeightBias[Weights / Biases]
+  end
+
+  subgraph Custom Layer
+    CustomNodeInCount[Node In Count]
+    CustomNodeOutCount[Node Out Count]
+
+    CustomKernelStaticInputs[Static Inputs]
+    CustomKernelArrayInputs[Array Dynamic Inputs]
+
+    CustomKernelOutputs[Output Values]
+  end
+
+  NodeInCount --> DefaultNodeInCount
+  NodeOutCount --> DefaultNodeOutCount
+
+  InputValues --> DefaultInputValues
+  DefaultInputValues --> CustomKernelArrayInputs
+
+  WeightBias --> DefaultWeightBias
+  DefaultWeightBias --> CustomKernelStaticInputs
+
+  CustomKernelOutputs --> DefaultOutputValues
+  DefaultOutputValues --> OutputValues
+
+  DefaultNodeInCount --> CustomNodeInCount
+  DefaultNodeOutCount --> CustomNodeOutCount
+
+  subgraph Kernel
+    KernelInputs[Kernel Inputs]
+    KernelOutputs[Kernel Outputs]
+    KernelFunction[Operations]
+  end
+
+  KernelInputs --> KernelFunction
+  KernelFunction --> KernelOutputs
+
+  CustomKernelStaticInputs --> KernelInputs
+  CustomKernelArrayInputs --> KernelInputs
+
+  KernelOutputs --> CustomKernelOutputs
+
+```
 
 ## Module
 
