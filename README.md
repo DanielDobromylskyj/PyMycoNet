@@ -14,65 +14,75 @@
 
 ```mermaid
 graph LR
-  subgraph Layer
-    NodeInCount[Node In Count]
-    NodeOutCount[Node Out Count]
-
-    InputValues[Input Values]
-    OutputValues[Output Values]
-
-    WeightBias[Weights / Biases]
+  %% =============================
+  %% Base Layer
+  %% =============================
+  subgraph L0["Layer Definitions"]
+    direction TB
+    L0_Input["Input Values"]
+    L0_Weights["Weights / Biases"]
+    L0_NodeIn["Node In Count"]
+    L0_NodeOut["Node Out Count"]
+    L0_Output["Output Values"]
   end
 
-  subgraph Default Layer
-    DefaultNodeInCount[Node In Count]
-    DefaultNodeOutCount[Node Out Count]
-
-    DefaultInputValues[Input Values]
-    DefaultOutputValues[Output Values]
-
-    DefaultWeightBias[Weights / Biases]
+  %% =============================
+  %% Default Layer
+  %% =============================
+  subgraph L1["Default Layer"]
+    direction TB
+    L1_Input["Input Values"]
+    L1_Weights["Weights / Biases"]
+    L1_NodeIn["Node In Count"]
+    L1_NodeOut["Node Out Count"]
+    L1_Output["Output Values"]
   end
 
-  subgraph Custom Layer
-    CustomNodeInCount[Node In Count]
-    CustomNodeOutCount[Node Out Count]
-
-    CustomKernelStaticInputs[Static Inputs]
-    CustomKernelArrayInputs[Array Dynamic Inputs]
-
-    CustomKernelOutputs[Output Values]
+  %% =============================
+  %% Custom Layer
+  %% =============================
+  subgraph L2["Custom Layer"]
+    direction TB
+    L2_Static["Static Inputs"]
+    L2_Array["Array Dynamic Inputs"]
+    L2_NodeIn["Node In Count"]
+    L2_NodeOut["Node Out Count"]
+    L2_Output["Output Values"]
   end
 
-  NodeInCount --> DefaultNodeInCount
-  NodeOutCount --> DefaultNodeOutCount
-
-  InputValues --> DefaultInputValues
-  DefaultInputValues --> CustomKernelArrayInputs
-
-  WeightBias --> DefaultWeightBias
-  DefaultWeightBias --> CustomKernelStaticInputs
-
-  CustomKernelOutputs --> DefaultOutputValues
-  DefaultOutputValues --> OutputValues
-
-  DefaultNodeInCount --> CustomNodeInCount
-  DefaultNodeOutCount --> CustomNodeOutCount
-
-  subgraph Kernel
-    KernelInputs[Kernel Inputs]
-    KernelOutputs[Kernel Outputs]
-    KernelFunction[Operations]
+  %% =============================
+  %% Kernel
+  %% =============================
+  subgraph K["Kernel Logic"]
+    direction TB
+    K_In["Kernel Inputs"]
+    K_Op["Operations"]
+    K_Out["Kernel Outputs"]
+    K_In --> K_Op --> K_Out
   end
 
-  KernelInputs --> KernelFunction
-  KernelFunction --> KernelOutputs
+  %% =============================
+  %% Connections between layers
+  %% =============================
 
-  CustomKernelStaticInputs --> KernelInputs
-  CustomKernelArrayInputs --> KernelInputs
+  %% Layer definitions feed defaults
+  L0_Input --> L1_Input
+  L0_Weights --> L1_Weights
+  L0_NodeIn --> L1_NodeIn
+  L0_NodeOut --> L1_NodeOut
 
-  KernelOutputs --> CustomKernelOutputs
+  %% Default feeds custom
+  L1_Input --> L2_Array
+  L1_Weights --> L2_Static
+  L1_NodeIn --> L2_NodeIn
+  L1_NodeOut --> L2_NodeOut
 
+  %% Custom feeds kernel
+  L2_Array --> K_In
+  L2_Static --> K_In
+  K_Out --> L2_Output
+  L2_Output --> L1_Output
+  L1_Output --> L0_Output
 ```
 
 ## Module
