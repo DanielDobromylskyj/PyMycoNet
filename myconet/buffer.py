@@ -29,7 +29,7 @@ class EmptyNetworkBuffer:
         self.__size = self.__item_count * item_dtype.itemsize
 
         self.__cl_buffer = cl.Buffer(self.__cl.ctx, mf.READ_WRITE, size=self.__size, hostbuf=None)
-        self.__np_buffer = numpy.empty(self.__size, dtype=self.__dtype)
+        self.__np_buffer = numpy.empty(self.__item_count, dtype=self.__dtype)
 
         self.__last_sync = None
         self.__sync_np_to_cl()
@@ -75,7 +75,12 @@ class EmptyNetworkBuffer:
 
 
     def write_to_buffer(self, array: numpy.ndarray, offset=0):
-        cl.enqueue_copy(self.__cl.queue, self.np, array, device_offset=offset * numpy.dtype(self.__dtype).itemsize)
+        if self.__last_sync == "np":
+            end = offset + array.size
+            self.__np_buffer[offset:end] = array.astype(self.__dtype, copy=False)
+
+        if self.__last_sync == "cl":
+            cl.enqueue_copy(self.__cl.queue, self.cl, array, device_offset=offset * numpy.dtype(self.__dtype).itemsize)
 
 
 class NetworkBuffer(EmptyNetworkBuffer):
