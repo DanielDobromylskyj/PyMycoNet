@@ -40,7 +40,7 @@ __kernel void reducer(
 
 
     float total = biases[output_index]; // Sum up all values for a given output node
-    for (int input_index=0; input_index<input_size; input_index++) {
+    for (int input_index=0; input_index < input_size; input_index++) {
         int unreduced_output_index = input_index * output_size + output_index;
         total += unreduced_outputs[unreduced_output_offset + unreduced_output_index];
     }
