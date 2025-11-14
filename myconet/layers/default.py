@@ -6,6 +6,11 @@ from ..buffer import NetworkBuffer
 from ..logger import Logger
 from ..file_api import encode_dict
 
+import warnings
+from pyopencl import CompilerWarning
+
+warnings.filterwarnings("ignore", category=CompilerWarning)
+
 
 class Layer:
     def __init__(self):
@@ -21,6 +26,14 @@ class Layer:
     def set_kernels(self, k1, k2):
         self.__forward_kernel = k1
         self.__backward_kernel = k2
+
+    @property
+    def forward_kernel(self):
+        return self.__forward_kernel
+
+    @property
+    def backward_kernel(self):
+        return self.__backward_kernel
 
     def __load_kernel(self, direction: str, file_name: str) -> cl.Program | None:
         if self.cl is None:
@@ -43,10 +56,11 @@ class Layer:
         self.__logger.log(f"Loading kernels for '{self.__class__.__name__}' Layer...")
         return self.__load_kernel("forward", file_name), self.__load_kernel("backward", file_name)
 
-    def forward(self, inputs: NetworkBuffer) -> NetworkBuffer:
+    def forward(self, inputs: NetworkBuffer, batch: int=1) -> NetworkBuffer:
         raise NotImplementedError
 
-    def backward(self, inputs: NetworkBuffer, outputs: NetworkBuffer, previous_errors: NetworkBuffer):
+    def backward(self, inputs: NetworkBuffer, outputs: NetworkBuffer, previous_error: NetworkBuffer, learning_rate: float, batch: int=1):
+        """ Must return: (next_error_gradients, weight_gradients, bias_gradients) as NetworkBuffer(s)"""
         raise NotImplementedError
 
     @property
@@ -55,6 +69,14 @@ class Layer:
 
     @property
     def output_node_count(self):
+        raise NotImplementedError
+
+    @property
+    def weight_count(self):
+        raise NotImplementedError
+
+    @property
+    def bias_count(self):
         raise NotImplementedError
 
     def serialize_to_dict(self):

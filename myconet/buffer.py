@@ -1,10 +1,14 @@
 import numpy
+import numpy as np
 import pyopencl as cl
 
 mf = cl.mem_flags
 
 
 def multiply_array(shape):
+    if type(shape) == int:
+        return shape
+
     total = 1
 
     for x in shape:
@@ -26,7 +30,7 @@ class EmptyNetworkBuffer:
         self.__shape = shape
         self.__dtype = item_dtype
         self.__item_count = multiply_array(shape)
-        self.__size = self.__item_count * item_dtype.itemsize
+        self.__size = self.__item_count * np.dtype(item_dtype).itemsize
 
         self.__cl_buffer = cl.Buffer(self.__cl.ctx, mf.READ_WRITE, size=self.__size, hostbuf=None)
         self.__np_buffer = numpy.empty(self.__item_count, dtype=self.__dtype)
@@ -65,11 +69,11 @@ class EmptyNetworkBuffer:
         return self.__last_sync
 
 
-    def __sync_np_to_cl(self):
+    def __sync_np_to_cl(self):  # todo - see about making a function that returns the enqueue event (for async stuff)
         cl.enqueue_copy(self.__cl.queue, self.__cl_buffer, self.__np_buffer).wait()
         self.__last_sync = "cl"
 
-    def __sync_cl_to_np(self):
+    def __sync_cl_to_np(self):  # todo - see about making a function that returns the enqueue event (for async stuff)
         cl.enqueue_copy(self.__cl.queue, self.__np_buffer, self.__cl_buffer).wait()
         self.__last_sync = "np"
 

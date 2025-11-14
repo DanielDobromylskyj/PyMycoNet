@@ -3,10 +3,33 @@ from myconet.layers.populated import FullyPopulated
 
 
 net = myconet.network.Network((
-    FullyPopulated(100, 50, 1),
-    FullyPopulated(50, 2, 2)
+    FullyPopulated(2, 3, 1),  # Both ReLU (activation = 1)
+    FullyPopulated(3, 1, 1)
 ))
 
 net.save("test.pyn")
 
 net2 = myconet.network.Network.load("test.pyn")
+
+values = [[5, 5], [3, 3], [2, 5], [7, 2], [3, 0]]
+targets = [[5], [3], [3.5], [5], [1.5]]
+learning_rate = 0.001
+
+outputs_1 = [net2.forward(value, is_batch=False) for value in values]
+outputs_2 = net2.forward(values, is_batch=True)
+
+if outputs_1[0] != outputs_2[0]:
+    print("Forward Batch vs Linear Output Mismatch!")
+    print(outputs_1)
+    print(outputs_2)
+
+
+gradients_1 = [
+    net2.backward(values[i], targets[i], learning_rate, is_batch=False)
+    for i in range(len(values))
+]
+gradients_2 = net2.backward(values, targets, learning_rate, is_batch=True)
+
+value = 0
+print(gradients_1[value][0][0])
+print(gradients_2[0][0][value])

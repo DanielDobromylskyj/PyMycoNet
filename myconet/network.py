@@ -1,8 +1,10 @@
 import time
 
+import numpy as np
+
 from . import file_api
 from .logger import Logger
-from .buffer import ClInstance
+from .buffer import ClInstance, NetworkBuffer, EmptyNetworkBuffer
 from .file_api import decode_dict
 from .layers.lookup import lookup_table as layer_lookup_table
 
@@ -66,6 +68,95 @@ class Network:
 
         for layer in self.__layout:
             layer.load_values()
+
+    @staticmethod
+    def unflatten_samples(flat, shapes):
+        samples = []
+        idx = 0
+        for shape in shapes:
+            size = np.prod(shape)
+            chunk = flat[idx: idx + size]
+            samples.append(chunk.reshape(shape))
+            idx += size
+        return samples
+
+    @property
+    def output_shape(self):
+        return self.__layout[-1].output_node_count
+
+    def forward(self, inputs: list | tuple | np.ndarray, is_batch=False, get_all_data=False):
+        batch = len(inputs) if is_batch is True else 1
+
+        if type(inputs) is not np.ndarray:  # todo - ensure even if they pass a ndarray, its float32
+            inputs = np.array(inputs, dtype=np.float32)
+
+        if is_batch:
+            self.__log.log(f"Processing batch of {len(inputs)} inputs...")
+            inputs = np.concatenate([s.ravel() for s in inputs])
+
+        next_inputs = NetworkBuffer(self.cl, inputs)
+        data = [next_inputs] if get_all_data else []
+
+        for i, layer in enumerate(self.__layout):
+            next_inputs = layer.forward(next_inputs, batch=batch)
+
+            if get_all_data:
+                data.append(next_inputs)
+
+        if is_batch:
+            final_values = self.unflatten_samples(next_inputs.np, [self.output_shape for _ in range(batch)])
+
+            if get_all_data:
+                return final_values, data
+            return final_values
+
+        if get_all_data:
+            return next_inputs.np,  data
+        return next_inputs.np
+
+    def backward(self, inputs: list | tuple | np.ndarray,
+                 targets: list | tuple | np.ndarray,
+                 learning_rate, is_batch=False) -> list[list[None | np.ndarray]]:
+        """
+        Returns the gradients calculated from backpropagation in the form of np arrays,
+        Formated so they can be indexed by: [layer_index][0/1 for weights/biases][batch_index]
+
+        :param inputs:
+        :param targets:
+        :param learning_rate:
+        :param is_batch:
+        :return:
+        """
+        batch = len(inputs) if is_batch is True else 1
+
+        if type(targets) is not np.ndarray:  # todo - Ensure even if they pass a ndarray, its float32
+            targets = np.array(targets, dtype=np.float32)
+
+        if is_batch:
+            targets = np.concatenate([s.ravel() for s in targets])
+
+        outputs, all_layer_values = self.forward(inputs, is_batch, get_all_data=True)
+
+        # todo - Ensure this is the correct way around (targets - outputs) vs (outputs - targets)
+        previous_errors = NetworkBuffer(self.cl, (targets - outputs).astype(np.float32))
+
+        gradients = [[None, None] for _ in self.__layout]
+        for layer_index in range(len(self.__layout)-1, -1, -1):
+            layer = self.__layout[layer_index]
+
+            layer_inputs = all_layer_values[layer_index]
+            layer_outputs = all_layer_values[layer_index+1]
+
+            previous_errors, weight_gradients, bias_gradients = layer.backward(
+                layer_inputs, layer_outputs, previous_errors, learning_rate, batch
+            )
+
+            batched_weights = self.unflatten_samples(weight_gradients.np, [layer.weight_count for _ in range(batch)])
+            batched_biases = self.unflatten_samples(bias_gradients.np, [layer.bias_count for _ in range(batch)])
+
+            gradients[layer_index] = [batched_weights, batched_biases]
+
+        return gradients
 
     @staticmethod
     def __get_optimiser_id():  # todo
