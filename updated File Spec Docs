@@ -7,8 +7,13 @@
 
 
 ## 🚧 Roadmap
-- [ ] Basic network support
-- [ ] File API v1.2
+- [X] Basic network support
+- [X] Dense Layer Support
+- [ ] Convoluted Layer Support
+- [ ] Convoluted Forward Support
+- [ ] Convoluted Backward Support
+- [ ] File API v1.3
+- [ ] Stable Network v2.4
 
 ## Relationship Graph
 
