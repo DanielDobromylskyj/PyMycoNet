@@ -104,7 +104,7 @@ MycoNet is a tool produced to train and process neural networks for my Find-A-Ba
 - Multiple Optimizers
 - Custom Logging (With Levels)
 
-### Examples
+### Examples (OUT OF DATE)
 
 ```python
 from myconet.layer.fully_connected import FullyConnected
@@ -213,12 +213,14 @@ Bits are from left to right (Big Enderian?)
 #### File Body
 This is a section containing a list of all network layers stored in order (Input to Output).
 The values are stored one after the other in the file.
+But first there is int64 (Little endarian) storing the number of layers in the network.
 
 Single Layers Data:
 |   Name / Usage   | Data Type | Size (Bytes) |
 | :--------------- | :------:  | :---------:  |
-| Layer Code (ID)          | Int - Little        |  8   |
 | Layer Data               | Dictionary          |  N/A  |
+
+
 
 #### Layers
 All Layers store their data in a encoded dictionary for consistency. This dictionary may have been lz4 compressed,
@@ -228,6 +230,7 @@ depending on the is_compressed flag stored in the header.
 ##### Fully Populated
 ```python
 {
+    "*layer_name*": (string) The name of the layer class -> "FullyPopulated"
     "input_size" : (int) Number of input nodes,
     "output_size" : (int) Number of output nodes,
     "activation" : (int) The Activation ID,
@@ -237,18 +240,24 @@ depending on the is_compressed flag stored in the header.
 }
 ```
 
-##### Convoluted
-_Warning:_ This does not yet have multiple filter/kernel support
+#### Optimisers
+If the optimiser ID Loaded earlier is 0, there is no data here, and no optimiser has been set for the network.
+If the optimiser ID is not 0 (Likely 1), there is now optimiser data, stored in an encoded dictionary.
+Once again, the dictionary may be compressed depending on what is_compressed flag value is set.
+
+|   Name / Usage   | Data Type | Size (Bytes) |
+| :--------------- | :------:  | :---------:  |
+| Optimiser Data               | Dictionary          |  N/A  |
+
+The Data within the dictionary is set out like this:
 
 ```python
 {
-    "input_shape": (tuple) (width, height, channels),
-    "kernel_shape": (tuple) (width, height),
-    "stride": (int) The amount the kernel is shifted,
-    "activation" : (int) The Activation ID,
+    "*optimiser_name*": (string) The name of the optimiser class -> e.g. "Standard"
 
-    "weights": (numpy.ndarray) Flattened 3D array of layers/kernels weights,
-    "biases" : (numpy.ndarray) Flattened 2D array of layers biases,
+    ...
+    Optimiser Data, dependant on the optimiser, is handled on a per-class basis.
+    ...
 }
 ```
 
