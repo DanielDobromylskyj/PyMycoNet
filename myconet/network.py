@@ -155,9 +155,74 @@ class Network:
             batched_weights = self.unflatten_samples(weight_gradients.np, [layer.weight_count for _ in range(batch)])
             batched_biases = self.unflatten_samples(bias_gradients.np, [layer.bias_count for _ in range(batch)])
 
-            gradients[layer_index] = [batched_weights, batched_biases]
+            if is_batch:
+                gradients[layer_index] = [batched_weights, batched_biases]
+            else:
+                gradients[layer_index] = [batched_weights[0], batched_biases[0]]
+
 
         return gradients
+
+    @staticmethod
+    def __average_gradients_batched(gradients):
+        """ The format is different compared to unbatched, so indices are different"""
+        layer_gradients = [[0, 0] for _ in gradients]
+        batch_count = len(gradients[0][0])
+        weighting_factor = 1 / batch_count
+
+        for layer_index, layer_values in enumerate(gradients):
+            for batch_index in range(batch_count):
+                weight_grad = layer_values[0][batch_index]
+                bias_grad = layer_values[1][batch_index]
+
+                layer_gradients[layer_index][0] += weight_grad * weighting_factor
+                layer_gradients[layer_index][1] += bias_grad * weighting_factor
+
+        return layer_gradients
+
+    @staticmethod
+    def __average_gradients_unbatched(gradients):
+        layer_gradients = [[0, 0] for _ in gradients[0]]
+        batch_count = len(gradients)
+        weighting_factor = 1 / batch_count
+
+        for batch in gradients:
+            for layer_index, layer_values in enumerate(batch):
+                weight_grad, bias_grad = layer_values
+
+                layer_gradients[layer_index][0] += weight_grad * weighting_factor
+                layer_gradients[layer_index][1] += bias_grad * weighting_factor
+
+        return layer_gradients
+
+    def __get_greatest_depth_of_list(self, input_list: list):
+        """ Gets the greatest depth / number of nested lists within a list. Used for sanity/error checking"""
+        if type(input_list) is not list:
+            return 0
+
+        greatest_found = 0
+        for element in input_list:
+            sub_depth = self.__get_greatest_depth_of_list(element) + 1
+
+            if sub_depth > greatest_found:
+                greatest_found = sub_depth
+
+        return greatest_found
+
+
+    def average_gradients(self, gradients, is_batch=False):
+        """ Returns a consistently formated list of layer gradients, given a variety of input types """
+
+        if is_batch:
+            return self.__average_gradients_batched(gradients)
+        else:
+            if self.__get_greatest_depth_of_list(gradients) == 2:
+                gradients = [gradients]
+
+            if self.__get_greatest_depth_of_list(gradients) != 3:
+                raise IndexError("Cannot Average Gradients as the input format is wrong!")
+
+            return self.__average_gradients_unbatched(gradients)
 
     @staticmethod
     def __get_optimiser_id():  # todo
