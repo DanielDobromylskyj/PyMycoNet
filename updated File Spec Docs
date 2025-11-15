@@ -163,6 +163,7 @@ Pip requirements:
 Everything is writen to a file through the FileAPI, It turns python datatypes into bytes and stores them.
 The API Supports a wide range of datatypes including (But not limited to): Ints, Floats, Bools, NoneTypes, Strings, Bytes, Lists, Tuples, Dicts, NDarrays
 
+##### Type Lookup
 Here is a list of some data types along with there: (Data Type ID, Encode Function, Decode Function)
 ```python
 type_lookup = {
@@ -179,8 +180,26 @@ type_lookup = {
 }
 
 ```
+##### Encoding / Decoding
+All the encoding specifications, A DataType in [DATATYPE] is refering to anouther data type in the list.
 
-More infomation can be found in the file_api.py file
+|   DataType   |  Infomation | 
+| :--: | :--  |
+| Int | uint64, Little Enderian (8 Bytes) |
+| Float | IEEE-754 32-bit format (struct -> fmt="f") |
+| Bytes | [Int], Bytes |
+| String | [Int], Encoded "utf-8" string as [Bytes] |
+| NoneType | Single UTF-8 Encoded "N" |
+| Boolean | uint8, Little Endarian, 1 For True, 0 for False |
+| List | Converted to a [Dict] where each key is the index, and value the element |
+| Tuple | Converted to a [Dict] where each key is the index, and value the element |
+| Dict | Key-Item pair count [Int], Key ID (From lookup) [Int], Item ID (From lookup) [Int], [type(Key)], [type(item)] |
+| Numpy.ndarray | Shape [Tuple], dType [String], ndarray.toBytes() [Bytes] (Is lz4 Compressed if specified) |
+
+
+
+
+> More infomation can be found in the file_api.py file if required
 
 #### File Header
 This section contains basic infomation about the file, including its version / layer types.
