@@ -1,4 +1,5 @@
 import numpy as np
+import pyopencl as cl
 
 from ..logger import Logger
 
@@ -53,3 +54,18 @@ def bias_init(activation, input_shape, output_shape):
     activation_type = activation_lookup[activation]
     Logger().log(f"  Initializing biases for a '{activation_type.__name__}' activated layer")
     return activation_type.biases(input_shape, output_shape)
+
+
+class ProgramKernels:
+    def __init__(self, program: cl.Program):
+        self.__program = program
+        self.__kernels = {
+            kernel.get_info(cl.kernel_info.FUNCTION_NAME): kernel
+            for kernel in self.__program.all_kernels()
+        }
+
+    def __getattr__(self, name):
+        if name in self.__kernels:
+            return self.__kernels[name]
+        else:
+            raise AttributeError(f"No kernel with name '{name}'")

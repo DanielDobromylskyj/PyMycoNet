@@ -5,6 +5,7 @@ import pyopencl as cl
 from ..buffer import NetworkBuffer
 from ..logger import Logger
 from ..file_api import encode_dict
+from .util import ProgramKernels
 
 import warnings
 from pyopencl import CompilerWarning
@@ -24,8 +25,8 @@ class Layer:
         self.cl = cl_instance
 
     def set_kernels(self, k1, k2):
-        self.__forward_kernel = k1
-        self.__backward_kernel = k2
+        self.__forward_kernel = ProgramKernels(k1)
+        self.__backward_kernel = ProgramKernels(k2)
 
     @property
     def forward_kernel(self):
