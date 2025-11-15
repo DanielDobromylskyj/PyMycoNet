@@ -12,7 +12,7 @@
 - [ ] Convoluted Layer Support
 - [ ] Convoluted Forward Support
 - [ ] Convoluted Backward Support
-- [ ] File API v1.3
+- [X] File API v1.3
 - [ ] Stable Network v2.4
 
 ## Relationship Graph
