@@ -42,7 +42,7 @@ __kernel void backward(
     int output_offset = output_node_count * batch_index;
 
     int weight_gradient_offset = input_node_count * output_node_count * batch_index;
-    int next_error_gradients_offset = input_node_count * output_node_count * batch_index;
+    //int next_error_gradients_offset = input_node_count * output_node_count * batch_index;
     int previous_error_gradients_offset = output_node_count * batch_index;
     int bias_gradient_offset = output_node_count * batch_index;
 
@@ -62,13 +62,12 @@ __kernel void backward(
             break;
     }
 
-    // fixme - Problem with: previous_error_gradients[previous_error_gradients_offset + output_index]
     float delta = previous_error_gradients[previous_error_gradients_offset + output_index] * derivative;
     float weight_gradient = delta * inputs[input_offset + input_index] * learning_rate;
 
     weight_gradients[weight_gradient_offset + weight_index] = clip(weight_gradient, 1.0f);
 
-    unreduced_next_error_gradients[next_error_gradients_offset + weight_index]; // Yes, we use weight index, its reduced later
+    unreduced_next_error_gradients[weight_gradient_offset + weight_index] = clip(weights[weight_index] * delta, 1.0f); // Yes, we use weight index, its reduced later
 
     if (input_index == 0) { // Only run this once per output node
         bias_gradients[bias_gradient_offset + output_index] = delta * learning_rate;
@@ -89,8 +88,7 @@ __kernel void reducer(
     int reduced_gradient_offset = input_size * batch_index;
 
     float total = 0.0f;
-
-    for (int output_index=0;output_index<output_size; output_index++) {
+    for (int output_index=0; output_index<output_size; output_index++) {
         int weight_index = input_index * output_size + output_index;
         total += unreduced_error_gradients[unreduced_gradient_offset + weight_index];
     }

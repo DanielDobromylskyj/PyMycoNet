@@ -30,6 +30,6 @@ gradients_1 = [
 ]
 gradients_2 = net2.backward(values, targets, learning_rate, is_batch=True)
 
-value = 0
+value = 1
 print(gradients_1[value][0][0])
 print(gradients_2[0][0][value])

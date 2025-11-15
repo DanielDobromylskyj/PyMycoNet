@@ -125,6 +125,8 @@ class FullyPopulated(DefaultLayer):
             np.float32(learning_rate)
         )
 
+        stage_1.wait()
+
         self.backward_kernel.reducer(
             self.cl.queue, (batch, self.input_node_count), None,
             unreduced_next_error_gradients.cl,

@@ -136,9 +136,10 @@ class Network:
             targets = np.concatenate([s.ravel() for s in targets])
 
         outputs, all_layer_values = self.forward(inputs, is_batch, get_all_data=True)
+        outputs = np.concatenate([s.ravel() for s in outputs], dtype=np.float32)
 
         # todo - Ensure this is the correct way around (targets - outputs) vs (outputs - targets)
-        previous_errors = NetworkBuffer(self.cl, (targets - outputs).astype(np.float32))
+        previous_errors = NetworkBuffer(self.cl, targets - outputs)
 
         gradients = [[None, None] for _ in self.__layout]
         for layer_index in range(len(self.__layout)-1, -1, -1):
