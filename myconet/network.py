@@ -7,19 +7,21 @@ from .logger import Logger
 from .buffer import ClInstance, NetworkBuffer, EmptyNetworkBuffer
 from .file_api import decode_dict
 from .layers.lookup import lookup_table as layer_lookup_table
-
+from .optimisers.lookup import lookup_table as optimiser_lookup_table
 
 class NetworkValidationException(Exception):
     pass
 
 
 class Network:
-    def __init__(self, layout: tuple, cl_instance=None, validate=True):
+    def __init__(self, layout: tuple, optimiser=None, cl_instance=None, validate=True):
+        self.__log = Logger()
+        self.__log.log("Initializing network")
+
         self.cl = ClInstance() if not cl_instance else cl_instance
         self.__layout = layout
 
-        self.__log = Logger()
-        self.__log.log("Initializing network")
+        self.__optimiser = optimiser(self.__layout) if optimiser is not None else None
 
         self.version = (2, 4)
         self.pyn_version = (1, 3)
@@ -83,6 +85,10 @@ class Network:
     @property
     def output_shape(self):
         return self.__layout[-1].output_node_count
+
+    def set_optimiser(self, optimiser):
+        self.__optimiser = optimiser
+        self.__optimiser.layers = self.__layout
 
     def forward(self, inputs: list | tuple | np.ndarray, is_batch=False, get_all_data=False):
         batch = len(inputs) if is_batch is True else 1
@@ -163,6 +169,14 @@ class Network:
 
         return gradients
 
+
+    def train(self, training_data, validation_data, learning_rate, should_batch=False):
+        if not self.__optimiser:
+            raise ValueError("Cannot train network, it does not have a optimiser set!")
+
+        pass  # todo
+
+
     @staticmethod
     def __average_gradients_batched(gradients):
         """ The format is different compared to unbatched, so indices are different"""
@@ -209,6 +223,9 @@ class Network:
 
         return greatest_found
 
+    def get_layer(self, layer_index):
+        return self.__layout[layer_index]
+
 
     def average_gradients(self, gradients, is_batch=False):
         """ Returns a consistently formated list of layer gradients, given a variety of input types """
@@ -224,9 +241,8 @@ class Network:
 
             return self.__average_gradients_unbatched(gradients)
 
-    @staticmethod
-    def __get_optimiser_id():  # todo
-        return 0
+    def __get_optimiser_id(self):  # todo
+        return 0 if not self.__optimiser else 1  # temp
 
     def __create_header(self, f):
         self.__log.log("Writing Header")
@@ -244,7 +260,7 @@ class Network:
         file_api.encode_intx(flags_int, 1, f)  # Flags
         self.__log.log("Writing Config Flags")
 
-        # todo
+        # todo - Not very urgent / useful
         #layer_types = self.__get_layout_types()
         layer_types_int = 0 #sum([2 ^ x for x in layer_types])
         file_api.encode_intx(layer_types_int, 8, f)  # All types of layer used (Checking for support)
@@ -265,10 +281,13 @@ class Network:
             file_api.encode_number(len(self.__layout), file)
             for i, layer in enumerate(self.__layout):
                 old_pointer = file.tell()
-                layer.write_to_file(file, compress=True)
+                layer.write_to_file(file, compress=self.pyn_config["use_compression"])
                 bytes_written = file.tell() - old_pointer
 
                 self.__log.log(f"Written layer '{layer.__class__.__name__}:{i+1}' to file. {round(bytes_written / 1024, 1)}KB")
+
+            if self.__optimiser:
+                self.__optimiser.write_to_file(file, compress=self.pyn_config["use_compression"])
 
     @staticmethod
     def __decode_flags(flags):
@@ -303,6 +322,16 @@ class Network:
 
             return layer_class.load_from_dict(cl_instance, values)
 
+        def read_optimiser_from_file(file, compressed):
+            values = decode_dict(file, compressed)
+
+            optimiser_name = values["*optimiser_name*"]
+            optimiser_class = optimiser_lookup_table[optimiser_name]
+
+            loaded_optimiser = optimiser_class(None)
+            loaded_optimiser.load_from_dict(values)
+            return loaded_optimiser
+
         with open(path, "rb") as f:
             header = Network.__decode_header(f)
             myconet_version, pyn_version, flags_int, layer_types, creation_date, optimiser_id = header
@@ -317,4 +346,11 @@ class Network:
                 for _ in range(layer_count)
             ])
 
-        return Network(layout, cl_instance, True)
+            if optimiser_id == 1:  # If there is an optimiser
+                optimiser = read_optimiser_from_file(f, compressed=is_compressed)
+
+
+        loaded_net = Network(layout, optimiser=None, cl_instance=cl_instance, validate=True)
+        loaded_net.set_optimiser(optimiser)
+
+        return loaded_net

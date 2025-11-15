@@ -140,4 +140,6 @@ class FullyPopulated(DefaultLayer):
 
         return reduced_next_error_gradients, weight_gradients, bias_gradients
 
-
+    def apply_gradient_changes(self, weight_deltas, bias_deltas):
+        self.__weights.np += weight_deltas
+        self.__biases.np += bias_deltas

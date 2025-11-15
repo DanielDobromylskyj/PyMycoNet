@@ -63,6 +63,9 @@ class Layer:
         """ Must return: (next_error_gradients, weight_gradients, bias_gradients) as NetworkBuffer(s)"""
         raise NotImplementedError
 
+    def apply_gradient_changes(self, weight_deltas, bias_deltas):
+        raise NotImplementedError
+
     @property
     def input_node_count(self):
         raise NotImplementedError

@@ -1,11 +1,12 @@
 import myconet.network
 from myconet.layers.populated import FullyPopulated
+from myconet.optimisers.standard import Standard as StandardOptimiser
 
 
 net = myconet.network.Network((
     FullyPopulated(2, 3, 1),  # Both ReLU (activation = 1)
     FullyPopulated(3, 1, 1)
-))
+), optimiser=StandardOptimiser)
 
 net.save("test.pyn")
 
