@@ -237,7 +237,7 @@ Bits are from left to right (Big Enderian?)
 #### File Body
 This is a section containing a list of all network layers stored in order (Input to Output).
 The values are stored one after the other in the file.
-But first there is int64 (Little endarian) storing the number of layers in the network.
+> **NOTE:** The first "Dictionary" Data Type does NOT have a "6" in front to signifiy that its a dict.
 
 Single Layers Data:
 |   Name / Usage   | Data Type | Size (Bytes) |
