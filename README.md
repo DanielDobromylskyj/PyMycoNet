@@ -207,15 +207,15 @@ This section contains basic infomation about the file, including its version / l
 Data Layout (In Order):
 |   Name / Usage   | Data Type | Size (Bytes) |
 | :--------------- | :------:  | :---------:  |
-| Module Version (Major)  | Int - Little         |  1   |
-| Module Version (Minor)  | Int - Little         |  1   |
-| File Version (Major)    | Int - Little         |  1   |
-| File Version (Minor)    | Int - Little         |  1   |
-| Flags                   | Int - Little         |  1   |
-| Layer Types             | Int - Little         |  8   |
-| Creation Date           | Int - Little         |  8   |
-| Optimiser ID (Not Imp)  | Int - Little         |  1   |
-| Layer Count             | Int - Little         |  8   |
+| Module Version (Major)  | uint - Little         |  1   |
+| Module Version (Minor)  | uint - Little         |  1   |
+| File Version (Major)    | uint - Little         |  1   |
+| File Version (Minor)    | uint - Little         |  1   |
+| Flags                   | uint - Little         |  1   |
+| Layer Types             | uint - Little         |  8   |
+| Creation Date           | uint - Little         |  8   |
+| Optimiser ID            | uint - Little         |  1   |
+| Layer Count             | uint - Little         |  8   |
 
 
 #### Header Flags
