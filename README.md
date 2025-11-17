@@ -1,6 +1,8 @@
 # 🦠 MycoNet
 > **Disclaimer:** This project is still in development and may break or behave unexpectedly. Use at your own risk!
 
+
+
 ## Index
 - [Myconet Module](#module)
 - [Save File Format](#file-formats)
@@ -153,13 +155,13 @@ Pip requirements:
 
 > **Warning:** This list may not be exhaustive, as project is still in development
 
-## File Formats
+## File Formats -> OUT OF DATE! (Now using v1.4)
 
-### Network Files (.pyn) (v1.2)
+### Network Files (.pyn) (v1.3)
 
 > **Warning:** This file format implemintation is _INCOMPLETE_
 
-#### File API
+#### File API -> OUT OF DATE! (Now using v1.4)
 Everything is writen to a file through the FileAPI, It turns python datatypes into bytes and stores them.
 The API Supports a wide range of datatypes including (But not limited to): Ints, Floats, Bools, NoneTypes, Strings, Bytes, Lists, Tuples, Dicts, NDarrays
 
