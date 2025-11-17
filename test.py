@@ -3,6 +3,9 @@ from myconet.layers.populated import FullyPopulated
 from myconet.optimisers.standard import Standard as StandardOptimiser
 
 
+# todo - re-write FileAPI Specification
+
+
 net = myconet.network.Network((
     FullyPopulated(2, 3, 1),  # Both ReLU (activation = 1)
     FullyPopulated(3, 1, 1)

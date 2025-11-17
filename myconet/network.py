@@ -5,7 +5,7 @@ import numpy as np
 from . import file_api
 from .logger import Logger
 from .buffer import ClInstance, NetworkBuffer, EmptyNetworkBuffer
-from .file_api import decode_dict
+from .file_api import FileAPI
 from .layers.lookup import lookup_table as layer_lookup_table
 from .optimisers.lookup import lookup_table as optimiser_lookup_table
 
@@ -244,30 +244,30 @@ class Network:
     def __get_optimiser_id(self):  # todo
         return 0 if not self.__optimiser else 1  # temp
 
-    def __create_header(self, f):
+    def __create_header(self, api):
         self.__log.log("Writing Header")
 
-        file_api.encode_intx(self.version[0], 1, f)  # Version - Major
-        file_api.encode_intx(self.version[1], 1, f)  # Version - Minor
+        api.encode_uint64(self.version[0])  # Version - Major
+        api.encode_uint64(self.version[1])  # Version - Minor
         self.__log.log("Writing Myconet Version")
 
-        file_api.encode_intx(self.pyn_version[0], 1, f)  # Pyn Version - Major
-        file_api.encode_intx(self.pyn_version[1], 1, f)  # Pyn Version - Minor
+        api.encode_uint64(self.pyn_version[0])  # Pyn Version - Major
+        api.encode_uint64(self.pyn_version[1])  # Pyn Version - Minor
         self.__log.log("Writing Pyn Version")
 
         flags = [self.pyn_config["use_compression"], 0, 0, 0, 0, 0, 0, 0]
         flags_int = sum([2 ** n for n in range(8) if flags[n]])
-        file_api.encode_intx(flags_int, 1, f)  # Flags
+        api.encode_uint64(flags_int)  # Flags
         self.__log.log("Writing Config Flags")
 
         # todo - Not very urgent / useful
         #layer_types = self.__get_layout_types()
         layer_types_int = 0 #sum([2 ^ x for x in layer_types])
-        file_api.encode_intx(layer_types_int, 8, f)  # All types of layer used (Checking for support)
+        api.encode_uint64(layer_types_int)  # All types of layer used (Checking for support)
         self.__log.log("Writing Used Layer Types")
 
-        file_api.encode_intx(self.creation_date, 8, f)  # Creation Date
-        file_api.encode_intx(self.__get_optimiser_id(), 1, f)  # Get optimiser Used  (Not yet fully supported)
+        api.encode_uint64(self.creation_date)  # Creation Date
+        api.encode_uint64(self.__get_optimiser_id())  # Get optimiser Used  (Not yet fully supported)
         self.__log.log("Writing Misc Data")
 
 
@@ -275,10 +275,11 @@ class Network:
         self.__log.log(f"Saving network to '{path}'...")
 
         with open(path, "wb") as file:
-            self.__create_header(file)
+            api = FileAPI(file)
+            self.__create_header(api)
             self.__log.log(f"Written Header. {file.tell()} Bytes")
 
-            file_api.encode_number(len(self.__layout), file)
+            api.encode_uint64(len(self.__layout))
             for i, layer in enumerate(self.__layout):
                 old_pointer = file.tell()
                 layer.write_to_file(file, compress=self.pyn_config["use_compression"])
@@ -297,13 +298,13 @@ class Network:
         ]
 
     @staticmethod
-    def __decode_header(f):
-        myconet_version = (file_api.decode_intx(1, f), file_api.decode_intx(1, f))
-        pyn_version = (file_api.decode_intx(1, f), file_api.decode_intx(1, f))
-        flags = file_api.decode_intx(1, f)
-        layer_types = file_api.decode_intx(8, f)
-        creation_date = file_api.decode_intx(8, f)
-        optimiser_id = file_api.decode_intx(1, f)
+    def __decode_header(api):
+        myconet_version = (api.decode_uint64(), api.decode_uint64())
+        pyn_version = (api.decode_uint64(), api.decode_uint64())
+        flags = api.decode_uint64()
+        layer_types = api.decode_uint64()
+        creation_date = api.decode_uint64()
+        optimiser_id = api.decode_uint64()
 
         return myconet_version, pyn_version, flags, layer_types, creation_date, optimiser_id
 
@@ -314,16 +315,16 @@ class Network:
 
         cl_instance = ClInstance()
 
-        def read_layer_from_file(cl_instance, file, compressed):
-            values = decode_dict(file, compressed)
+        def read_layer_from_file(cl_instance, fileAPI, compressed):
+            values = fileAPI.decode_dict(compressed)
 
             layer_name = values["*layer_name*"]
             layer_class = layer_lookup_table[layer_name]
 
             return layer_class.load_from_dict(cl_instance, values)
 
-        def read_optimiser_from_file(file, compressed):
-            values = decode_dict(file, compressed)
+        def read_optimiser_from_file(fileAPI, compressed):
+            values = fileAPI.decode_dict(compressed)
 
             optimiser_name = values["*optimiser_name*"]
             optimiser_class = optimiser_lookup_table[optimiser_name]
@@ -333,21 +334,23 @@ class Network:
             return loaded_optimiser
 
         with open(path, "rb") as f:
-            header = Network.__decode_header(f)
+            api = FileAPI(f)
+
+            header = Network.__decode_header(api)
             myconet_version, pyn_version, flags_int, layer_types, creation_date, optimiser_id = header
             log.log(f"Loaded header | Myconet Version: {myconet_version}, Pyn Version: {pyn_version}")
 
             flags = Network.__decode_flags(flags_int)
             is_compressed = flags[0]
-            layer_count = file_api.decode_int(f)
+            layer_count = api.decode_uint64()
 
             layout = tuple([
-                read_layer_from_file(cl_instance, f, is_compressed)
+                read_layer_from_file(cl_instance, api, is_compressed)
                 for _ in range(layer_count)
             ])
 
             if optimiser_id == 1:  # If there is an optimiser
-                optimiser = read_optimiser_from_file(f, compressed=is_compressed)
+                optimiser = read_optimiser_from_file(api, compressed=is_compressed)
 
 
         loaded_net = Network(layout, optimiser=None, cl_instance=cl_instance, validate=True)

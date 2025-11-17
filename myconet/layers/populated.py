@@ -1,6 +1,5 @@
 import numpy as np
 
-from CNN_Python_Opencl.myconet.buffer import EmptyNetworkBuffer
 from .default import Layer as DefaultLayer
 from .util import weight_init, bias_init
 from ..buffer import NetworkBuffer, EmptyNetworkBuffer

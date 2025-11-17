@@ -1,4 +1,4 @@
-from ..file_api import encode_dict
+from ..file_api import FileAPI
 from ..logger import Logger
 
 class Optimiser:
@@ -26,7 +26,9 @@ class Optimiser:
     def write_to_file(self, file, compress):
         values = self.optimiser_data
         values["*optimiser_name*"] = self.__class__.__name__
-        encode_dict(values, file, compress)
+
+        api = FileAPI(file)
+        api.encode_dict(values, compress)
 
     def load_from_dict(self, values: dict):
         values.pop("*optimiser_name*")

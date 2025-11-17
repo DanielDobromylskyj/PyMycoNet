@@ -4,7 +4,7 @@ import pyopencl as cl
 
 from ..buffer import NetworkBuffer
 from ..logger import Logger
-from ..file_api import encode_dict
+from ..file_api import FileAPI
 from .util import ProgramKernels
 
 import warnings
@@ -89,5 +89,7 @@ class Layer:
     def write_to_file(self, file, compress):
         values = self.serialize_to_dict()
         values["*layer_name*"] = self.__class__.__name__
-        encode_dict(values, file, compress)
+
+        api = FileAPI(file)
+        api.encode_dict(values, compress)
 
